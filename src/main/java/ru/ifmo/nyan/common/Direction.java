@@ -3,6 +3,7 @@ package ru.ifmo.nyan.common;
 import ru.ifmo.nyan.field.DeltaCoord;
 
 import java.io.Serializable;
+import java.util.Random;
 
 public enum Direction implements Serializable {
     UP(0, -1),
@@ -10,6 +11,10 @@ public enum Direction implements Serializable {
     LEFT(-1, 0),
     RIGHT(1, 0),
     HERE(0, 0);
+
+    public static final Direction[] outerDirections = new Direction[]{
+            UP, LEFT, DOWN, RIGHT
+    };
 
     private final DeltaCoord displacement;
 
@@ -19,5 +24,9 @@ public enum Direction implements Serializable {
 
     public DeltaCoord toDisplacement() {
         return displacement;
+    }
+
+    public Direction[] outer() {
+        return outerDirections;
     }
 }

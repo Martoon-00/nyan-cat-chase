@@ -16,12 +16,12 @@ public class JudgeGameVisualizer {
     }
 
     public void draw(JudgeGame.JudgeGameView view) {
-        for (int y = 0; y < view.fieldSize(); y++) {
-            for (int x = 0; x < view.fieldSize(); x++) {
+        for (int y = 0; y < view.getField().getHeight(); y++) {
+            for (int x = 0; x < view.getField().getWidth(); x++) {
                 Coord curPos = new Coord(x, y);
 
                 // try hunter
-                Optional<Coord> hunterPos = view.huntersNearby()
+                Optional<Coord> hunterPos = view.getHuntersNearby()
                         .filter(c -> c.equals(curPos))
                         .findAny();
                 if (hunterPos.isPresent()) {
@@ -30,7 +30,7 @@ public class JudgeGameVisualizer {
                 }
 
                 // try nyan
-                if (view.nyanCat().getPosition().equals(curPos)) {
+                if (view.getNyanCat().getPosition().equals(curPos)) {
                     drawCell("N", Colorer.Format.YELLOW);
                     continue;
                 }

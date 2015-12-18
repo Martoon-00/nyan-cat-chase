@@ -18,8 +18,8 @@ public class HunterGameVisualizer {
     }
 
     public void draw(HunterGame.HunterGameView view) {
-        for (int y = 0; y < view.fieldSize(); y++) {
-            for (int x = 0; x < view.fieldSize(); x++) {
+        for (int y = 0; y < view.getField().getHeight(); y++) {
+            for (int x = 0; x < view.getField().getWidth(); x++) {
                 Coord curPos = new Coord(x, y);
 
                 // try hunter

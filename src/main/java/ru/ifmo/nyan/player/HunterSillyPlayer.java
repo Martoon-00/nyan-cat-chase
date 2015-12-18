@@ -24,6 +24,7 @@ public class HunterSillyPlayer {
         game = new HunterGame(networkInterface);
         int moveDelay = Parameters.getProperty("delay.move.hunter");
         executor.scheduleAtFixedRate(this::makeRandomTurn, moveDelay, moveDelay, TimeUnit.MILLISECONDS);
+        executor.scheduleAtFixedRate(() -> visualizer.draw(game.getView()), 100, moveDelay, TimeUnit.MILLISECONDS);
     }
 
     public void subscribe(FieldChangeListener listener) {
@@ -42,7 +43,7 @@ public class HunterSillyPlayer {
         NetworkInterface networkInterface = NetworkInterface.getByName("wlan0");
         HunterSillyPlayer player = new HunterSillyPlayer(networkInterface);
 
-        player.subscribe(visualizer::draw);
+//        player.subscribe(visualizer::draw);
 
     }
 }

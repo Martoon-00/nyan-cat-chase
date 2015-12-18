@@ -7,7 +7,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class Field<C extends Cell> {
+public class Field {
     private final int height;
 
     /**
@@ -15,20 +15,13 @@ public class Field<C extends Cell> {
      */
     private final int width;
 
-    /**
-     * Cells.
-     * We can't create array of generic type, so list is in use
-     */
-    private final List<List<C>> field;
-
-    public Field(int width, int height, Supplier<C> initialCells) {
+    public Field(int width, int height) {
         this.width = width;
         this.height = height;
+    }
 
-        Supplier<List<C>> initialRows = () -> Stream.generate(initialCells).limit(width)
-                .collect(Collectors.toList());
-        field = Stream.generate(initialRows).limit(height)
-                .collect(Collectors.toList());
+    public Field(int size) {
+        this(size, size);
     }
 
     public int getWidth() {
@@ -49,19 +42,13 @@ public class Field<C extends Cell> {
         return c.x >= 0 && c.x < width && c.y >= 0 && c.y < height ;
     }
 
-    public C get(Coord c) {
-        if (!inBounds(c))
-            throw new IllegalArgumentException(String.format("Incorrect index. %s is not within [0, %d] x [0, %d]",
-                    c, width - 1, height - 1));
-
-        return field.get(c.x).get(c.y);
+    public void requireInBounds(Coord c) {
+        if (!inBounds(c)) {
+            throw new IllegalArgumentException(String.format("Coordinates %s are not within field bounds [0, %d] x [0, %d]", c, width, height));
+        }
     }
 
-    public synchronized void modify(Coord c, Consumer<C> modifier) {
-        modifier.accept(get(c));
-    }
-
-    public Coord randomCoord() {
+    public Coord randomCell() {
         Random random = new Random();
         return new Coord(random.nextInt(width), random.nextInt(height));
     }

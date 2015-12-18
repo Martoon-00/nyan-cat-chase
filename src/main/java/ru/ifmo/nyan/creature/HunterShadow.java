@@ -9,6 +9,8 @@ import ru.ifmo.nyan.field.Field;
 public class HunterShadow implements HunterInstance {
     protected final Field field;
 
+    protected int multicastId = -1;
+
     @NotNull
     protected Coord position;
 
@@ -34,7 +36,8 @@ public class HunterShadow implements HunterInstance {
         return lastKnownDirection;
     }
 
-    public void setLastDirection(Direction lastKnownDirection) {
-        this.lastKnownDirection = lastKnownDirection;
+    public void setLastDirection(int newMulticastId, Direction lastKnownDirection) {
+        if (newMulticastId > multicastId)
+            this.lastKnownDirection = lastKnownDirection;
     }
 }

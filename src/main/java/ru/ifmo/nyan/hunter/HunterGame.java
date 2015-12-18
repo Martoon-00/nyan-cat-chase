@@ -25,9 +25,7 @@ import java.util.stream.Stream;
 public class HunterGame implements AutoCloseable {
     private static final Logger logger = Logger.getLogger(HunterGame.class);
 
-    public static final int FIELD_SIZE = Parameters.getSilently("field.size");
-
-    private final Field<Cell> field = new Field<>(FIELD_SIZE, FIELD_SIZE, Cell::new);
+    private final Field field = new Field(Parameters.getSilently("field.size"));
     private final CoordToIp coordToIp = new CoordToIpMapper();
 
     private final Hunter hunter;
@@ -48,7 +46,7 @@ public class HunterGame implements AutoCloseable {
         sender = new MessageSender(networkInterface, Parameters.getProperty("port.field"));
         registerReplyProtocols();
 
-        hunter = new Hunter(field, field.randomCoord());
+        hunter = new Hunter(field, field.randomCell());
         sender.joinGroup(coordToIp.toIp(hunter.getPosition()));
 
         sender.unfreeze();
@@ -85,7 +83,7 @@ public class HunterGame implements AutoCloseable {
         System.out.println("Received");
         Stream.concat(Stream.of(hunter), shadows.stream())
                 .filter(h -> h.getPosition().equals(msg.position))
-                .forEach(h -> h.setLastDirection(msg.nyanCatDirection));
+                .forEach(h -> h.setLastDirection(msg.multicastId, msg.nyanCatDirection));
 
         HunterGameView gameView = new HunterGameView();
         fortificate();
@@ -102,7 +100,9 @@ public class HunterGame implements AutoCloseable {
     private void fortificate() {
         fortificationProgress++;
 
-        if (fortificationProgress == Parameters.getSilently("hunter.fortification.create-shadow")) {
+        if (fortificationProgress == Parameters.getSilently("hunter.fortification.create-shadow")
+                && shadows.size() < Parameters.getSilently("hunter.max-shadows")) {
+            // raises exception when join to many groups
             shadows.add(new HunterShadow(field, hunter.getPosition()));
         }
     }
@@ -110,6 +110,10 @@ public class HunterGame implements AutoCloseable {
     public void close() throws IOException {
         turns.close();
         sender.close();
+    }
+
+    public HunterGameView getView() {
+        return new HunterGameView();
     }
 
     public class HunterGameView {
@@ -137,8 +141,8 @@ public class HunterGame implements AutoCloseable {
             HunterGame.this.makeTurn(turn);
         }
 
-        public int fieldSize() {
-            return FIELD_SIZE;
+        public Field getField() {
+            return field;
         }
     }
 
