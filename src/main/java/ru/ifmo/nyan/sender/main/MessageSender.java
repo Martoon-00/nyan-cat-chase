@@ -14,6 +14,7 @@ import ru.ifmo.nyan.sender.util.UniqueValue;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
@@ -54,10 +55,13 @@ public class MessageSender implements Closeable {
 
 
     public MessageSender(NetworkInterface networkInterface, int listeningUdpPort, UniqueValue unique) throws IOException {
-        Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
-        if (!inetAddresses.hasMoreElements())
+        List<InetAddress> inetAddresses = Collections.list(networkInterface.getInetAddresses());
+        if (inetAddresses.isEmpty())
             throw new IllegalArgumentException(String.format("Network interface %s has no inet addresses", networkInterface));
-        this.listeningAddress = inetAddresses.nextElement();
+        this.listeningAddress  = inetAddresses.stream()
+                .filter(inetAddress -> inetAddress instanceof Inet4Address)
+                .findFirst().orElseGet(() -> inetAddresses.get(0));  // TODO: It seems to work only with IP-v4 :(
+
         this.unique = unique;
 
         logger.info(Colorer.format("Initiating", Colorer.Format.PLAIN));
