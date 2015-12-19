@@ -9,6 +9,7 @@ public class LaunchJudge {
         NetworkInterface networkInterface = NetworkInterface.getByName("wlan0");
         JudgeBotPlayer player = new JudgeBotPlayer(networkInterface, new ExampleNyanBot(123));
         player.play();
+
     }
 
 }

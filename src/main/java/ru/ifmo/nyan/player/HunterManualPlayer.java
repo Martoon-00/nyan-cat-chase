@@ -2,7 +2,6 @@ package ru.ifmo.nyan.player;
 
 import ru.ifmo.nyan.common.Direction;
 import ru.ifmo.nyan.common.Parameters;
-import ru.ifmo.nyan.hunter.FieldChangeListener;
 import ru.ifmo.nyan.hunter.HunterGame;
 import ru.ifmo.nyan.hunter.HunterGameVisualizer;
 
@@ -14,30 +13,40 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class HunterSillyPlayer {
+public class HunterManualPlayer {
     private static final HunterGameVisualizer visualizer = new HunterGameVisualizer(System.out, 2);
 
     private final HunterGame game;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
-    public HunterSillyPlayer(NetworkInterface networkInterface) throws IOException {
+    public HunterManualPlayer(NetworkInterface networkInterface) throws IOException {
         game = new HunterGame(networkInterface);
         int moveDelay = Parameters.getProperty("delay.move.hunter");
-        executor.scheduleAtFixedRate(this::makeRandomTurn, moveDelay, moveDelay, TimeUnit.MILLISECONDS);
         executor.scheduleAtFixedRate(() -> visualizer.draw(game.getView()), 100, moveDelay, TimeUnit.MILLISECONDS);
-    }
 
-    public void makeRandomTurn() {
-        Direction randomDirection = Arrays.stream(Direction.values())
-                .filter(direction -> direction != Direction.HERE)
-                .toArray(Direction[]::new)[new Random().nextInt(4)];
+        while (true) {
+            int key = System.in.read();
+            Direction dir = null;
 
-        game.makeTurn(randomDirection);
+            if (key == -1)
+                break;
+            else if (key == 's')
+                dir = Direction.DOWN;
+            else if (key == 'w')
+                dir = Direction.UP;
+            else if (key == 'a')
+                dir = Direction.LEFT;
+            else if (key == 'd')
+                dir = Direction.RIGHT;
+
+            if (dir != null)
+                game.makeTurn(dir);
+        }
     }
 
     public static void main(String[] args) throws IOException {
         NetworkInterface networkInterface = NetworkInterface.getByName("wlan0");
-        HunterSillyPlayer player = new HunterSillyPlayer(networkInterface);
+        HunterManualPlayer player = new HunterManualPlayer(networkInterface);
 
 //        player.subscribe(visualizer::draw);
 

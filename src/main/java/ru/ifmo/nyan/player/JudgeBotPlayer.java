@@ -25,7 +25,6 @@ public class JudgeBotPlayer {
     public JudgeBotPlayer(NetworkInterface networkInterface, NyanBot bot) throws IOException {
         this.bot = bot;
         this.game = new JudgeGame(networkInterface);
-
     }
 
     public void play() {

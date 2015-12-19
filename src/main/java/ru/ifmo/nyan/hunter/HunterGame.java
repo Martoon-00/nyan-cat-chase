@@ -18,6 +18,9 @@ import java.io.IOException;
 import java.net.NetworkInterface;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -33,9 +36,8 @@ public class HunterGame implements AutoCloseable {
 
     private final MessageSender sender;
 
-    private final MarkeredLeakyBucket<HunterTurn> turns = new MarkeredLeakyBucket<>(Parameters.getSilently("turns.buffer"), this::actuallyMakeTurn, HunterTurn::endsTurn);
-
-    private final List<FieldChangeListener> changeListeners = new ArrayList<>();
+    private final MarkeredLeakyBucket<Direction> turns = new MarkeredLeakyBucket<>(Parameters.getSilently("turns.buffer"), this::actuallyMakeTurn);
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     /**
      * About how long hunter is staying motionlessly
@@ -51,27 +53,57 @@ public class HunterGame implements AutoCloseable {
 
         sender.unfreeze();
         turns.start();
-        turns.putMarkerPeriodically(0, Parameters.getProperty("delay.move.hunter"));
+
+        int hunterTurnDelay = Parameters.getProperty("delay.move.hunter");
+        turns.putMarkerPeriodically(0, hunterTurnDelay);
+        executor.scheduleAtFixedRate(this::fortificate, 0, hunterTurnDelay, TimeUnit.MILLISECONDS);
     }
 
     public void registerReplyProtocols() {
         sender.registerReplyProtocol(ReplyProtocol.react(CellMulticastMsg.class, this::onJudgeMulticast));
     }
 
-    public void makeTurn(HunterTurn turn) {
+    public void makeTurn(Direction turn) {
         // we have to filter too rapid turns
         turns.putItem(turn);
-        System.out.println("Turn " + turn);
     }
 
-    private void actuallyMakeTurn(HunterTurn turn) {
+    private void actuallyMakeTurn(Direction turn) {
         Coord pos = hunter.getPosition();
-        turn.move();
-        System.out.printf("Actual turn %s: %s -> %s%n", turn, pos, hunter.getPosition());
-    }
+        Predicate<Coord> hasShadowOn = coord -> shadows.stream()
+                .filter(shadow -> shadow.getPosition().equals(coord))
+                .map(shadow -> true)
+                .findAny().orElse(false);
 
-    public void subscribe(FieldChangeListener onChange) {
-        changeListeners.add(onChange);
+        sender.freeze();
+        try {
+            // change position & subscribe/unsubscribe
+            Coord wasPosition = hunter.getPosition();
+            if (!hasShadowOn.test(wasPosition)) {
+                sender.leaveGroup(coordToIp.toIp(wasPosition));
+            }
+
+            hunter.move(turn);
+
+            Coord newPosition = hunter.getPosition();
+            if (!hasShadowOn.test(newPosition)) {
+                sender.joinGroup(coordToIp.toIp(newPosition));
+            }
+
+            if (!newPosition.equals(wasPosition)) {
+                fortificationProgress = 0;
+            }
+
+            registerReplyProtocols();
+        } catch (IOException e) {
+            logger.warn("Exception while joining/leaving group", e);
+        } catch (Throwable e) {
+            logger.error("Error while moving hunter");
+        } finally {
+            sender.unfreeze();
+        }
+
+        System.out.printf("Actual turn %s: %s -> %s%n", turn, pos, hunter.getPosition());
     }
 
     private void onJudgeMulticast(RequestHandler<CellMulticastMsg, CellMulticastResponseMsg> handler) {
@@ -80,21 +112,9 @@ public class HunterGame implements AutoCloseable {
             handler.answer(new CellMulticastResponseMsg(msg.position));
         }
 
-        System.out.println("Received");
         Stream.concat(Stream.of(hunter), shadows.stream())
                 .filter(h -> h.getPosition().equals(msg.position))
                 .forEach(h -> h.setLastDirection(msg.multicastId, msg.nyanCatDirection));
-
-        HunterGameView gameView = new HunterGameView();
-        fortificate();
-
-        changeListeners.stream().forEach(listener -> {
-            try {
-                listener.invoke(gameView);
-            } catch (Exception e) {
-                logger.warn("Listener threw an exception", e);
-            }
-        });
     }
 
     private void fortificate() {
@@ -133,65 +153,16 @@ public class HunterGame implements AutoCloseable {
             return Stream.concat(Stream.of(hunter), shadows.stream());
         }
 
-        public int fortificationProgress() {
+        public int getFortificationProgress() {
             return fortificationProgress;
         }
 
-        public void makeTurn(HunterTurn turn) {
+        public void makeTurn(Direction turn) {
             HunterGame.this.makeTurn(turn);
         }
 
         public Field getField() {
             return field;
-        }
-    }
-
-    public class MoveTurn implements HunterTurn {
-        public final Direction direction;
-
-        public MoveTurn(Direction direction) {
-            this.direction = direction;
-        }
-
-        @Override
-        public void move() {
-            Predicate<Coord> hasShadowOn = coord -> shadows.stream()
-                    .filter(shadow -> shadow.getPosition().equals(coord))
-                    .map(shadow -> true)
-                    .findAny().orElse(false);
-
-            sender.freeze();
-            try {
-                // change position & subscribe/unsubscribe
-                Coord wasPosition = hunter.getPosition();
-                if (!hasShadowOn.test(wasPosition)) {
-                    sender.leaveGroup(coordToIp.toIp(wasPosition));
-                }
-
-                hunter.move(direction);
-
-                Coord newPosition = hunter.getPosition();
-                if (!hasShadowOn.test(newPosition)) {
-                    sender.joinGroup(coordToIp.toIp(newPosition));
-                }
-
-                if (!newPosition.equals(wasPosition)) {
-                    fortificationProgress = 0;
-                }
-
-                registerReplyProtocols();
-            } catch (IOException e) {
-                logger.warn("Exception while joining/leaving group", e);
-            } catch (Throwable e) {
-                logger.error("Error while moving hunter");
-            } finally {
-                sender.unfreeze();
-            }
-        }
-
-        @Override
-        public String toString() {
-            return "Move " + direction;
         }
     }
 
